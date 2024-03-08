@@ -7,7 +7,7 @@
 - Visual Studio 2022
 
 # 使用
-1. 从 Release 中下载 version.dll
+1. 从 Release 中下载 `version.dll`
 2. 找到你的搜狗输入法的安装目录，例如我的是 `C:\Program Files (x86)\SogouInput\14.2.0.8968`
 3. 把 `version.dll` 放到该目录下
 4. 重启电脑(建议，非必须)
@@ -15,7 +15,8 @@
 
 # 保护程度 
 以下是提供的保护
-- 阻止一些不必要的程序启动。
+- 在不必要的程序启动时自动退出，并阻止一些不必要的程序启动。
+- 阻止使用 `socket` 函数建立socket连接。
 - 阻止使用 `winhttp.dll` 模块建立HTTP连接。
 - 阻止使用 `wininet.dll` 模块建立HTTP连接。
 - 禁止 `SGCurlHelper.dll` 模块的代码执行。
