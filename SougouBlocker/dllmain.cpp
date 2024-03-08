@@ -4,7 +4,11 @@
 #include "minhook/include/MinHook.h"
 #include "Hijack.h"
 
-const char* pBlackListedProcess[] = { "SGBizLauncher.exe", "SogouCloud.exe", "SGPicFaceTool.exe", "PinyinUp.exe", "SGMedalLoader.exe", "userNetSchedule.exe", "SGDownload.exe" };
+const wchar_t* pBlackListedProcess[] = {
+    L"SGBizLauncher.exe", L"SogouCloud.exe", L"SGPicFaceTool.exe", L"PinyinUp.exe",
+    L"SGMedalLoader.exe", L"userNetSchedule.exe", L"SGDownload.exe", L"SGWebRender.exe", 
+    L"SGWangzai.exe", L"SGSmartAssistant.exe"
+};
 const char* pSuspectModules[] = { "SGCurlHelper.dll" };
 
 void SuspendCurrentProcess()
@@ -14,7 +18,7 @@ void SuspendCurrentProcess()
     NtSuspendProcess((HANDLE)-1);
 }
 
-void SetDieAtExecute(void* pModuleBase)
+void DieAtExecute(void* pModuleBase)
 {
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)pModuleBase;
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)((uintptr_t)pModuleBase + dos->e_lfanew);
@@ -28,9 +32,7 @@ void SetDieAtExecute(void* pModuleBase)
     return;
 }
 
-HINTERNET
-WINAPI
-hkWinHttpOpen
+HINTERNET WINAPI hkWinHttpOpen
 (
     _In_opt_z_ LPCWSTR pszAgentW,
     _In_ DWORD dwAccessType,
@@ -56,12 +58,33 @@ HINTERNET WINAPI hkHttpOpenRequestA(
     return 0;
 }
 
-void Thread()
+SOCKET __stdcall hksocket(int af, int type, int protocol)
 {
-    const char* pCommandLine = GetCommandLineA();
+    return SOCKET_ERROR;
+}
+
+using fnCreateProcessW = BOOL(__stdcall*)(LPCWSTR, LPWSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCWSTR, LPSTARTUPINFOW, LPPROCESS_INFORMATION);
+fnCreateProcessW pCreateProcessW;
+BOOL __stdcall hkCreateProcessW(LPCWSTR lpApplicationName, LPWSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)
+{
     for (int i = 0; i < sizeof(pBlackListedProcess) / sizeof(const char*); i++)
     {
-        if (strstr(pCommandLine, pBlackListedProcess[i]))
+        if (wcsstr(lpCommandLine, pBlackListedProcess[i]))
+        {
+            return false;
+        }
+    }
+
+    return pCreateProcessW(lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
+}
+
+
+void Thread()
+{
+    const wchar_t* pCommandLine = GetCommandLineW();
+    for (int i = 0; i < sizeof(pBlackListedProcess) / sizeof(const char*); i++)
+    {
+        if (wcsstr(pCommandLine, pBlackListedProcess[i]))
         {
             ExitProcess(0);
             // SuspendCurrentProcess();
@@ -74,25 +97,28 @@ void Thread()
         void* pSuspectModule = GetModuleHandleA(pSuspectModules[i]);
         if (pSuspectModule)
         {
-            SetDieAtExecute(pSuspectModule);
+            DieAtExecute(pSuspectModule);
         }
     }
-
     MH_Initialize();
     void* _DiscardedOG = nullptr;
-    bool bAnyHook = false;
     if (GetModuleHandleA("winhttp.dll"))
     {
         MH_CreateHookApi(L"winhttp.dll", "WinHttpOpen", hkWinHttpOpen, &_DiscardedOG);
-        bAnyHook = true;
     }
     if (GetModuleHandleA("wininet.dll"))
     {
         MH_CreateHookApi(L"wininet.dll", "HttpOpenRequestA", hkHttpOpenRequestA, &_DiscardedOG);
-        bAnyHook = true;
     }
-    if(bAnyHook)
-        MH_EnableHook(MH_ALL_HOOKS);
+    if (GetModuleHandleA("ws2_32.dll"))
+    {
+        MH_CreateHookApi(L"ws2_32.dll", "socket", hksocket, &_DiscardedOG);
+    }
+    if (GetModuleHandleA("kernel32.dll"))
+    {
+        MH_CreateHookApi(L"kernel32.dll", "CreateProcessW", hkCreateProcessW, (void**)&pCreateProcessW);
+    }
+    MH_EnableHook(MH_ALL_HOOKS);
     return;
 }
 
