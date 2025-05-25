@@ -7,7 +7,10 @@
 const wchar_t* pBlackListedProcess[] = {
     L"SGBizLauncher.exe", L"SogouCloud.exe", L"SGPicFaceTool.exe", L"PinyinUp.exe",
     L"SGMedalLoader.exe", L"userNetSchedule.exe", L"SGDownload.exe", L"SGWebRender.exe", 
-    L"SGWangzai.exe", L"SGSmartAssistant.exe"
+    L"SGWangzai.exe", L"SGSmartAssistant.exe",
+
+    // Path
+    L"SogouInput\\Components", L"SogouInput\\SogouExe"
 };
 const char* pSuspectModules[] = { "SGCurlHelper.dll" };
 
